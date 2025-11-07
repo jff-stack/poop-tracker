@@ -33,7 +33,7 @@ def fetch_nutrition_data(food_name: str, quantity: float, unit: str) -> Optional
             return None
         
                 # Extract the first (best match) food item
-        food_item = data['foods']
+        food_item = data['foods'][0]
         
         # Extract relevant nutrition info
         nutrients = food_item.get('foodNutrients', [])

@@ -1,13 +1,12 @@
 from flask import Flask, jsonify, request
 from flask_cors import CORS
-from database import get_db, init_db  # ✓ ADDED: init_db import
-from nutrition_api import fetch_nutrition_data  # ✓ ADDED: missing import
-import json  # ✓ ADDED: missing import
-import sqlite3  # ✓ ADDED: missing import
+from database import get_db, init_db
+from nutrition_api import fetch_nutrition_data
+import json
+import sqlite3
 import joblib
 import numpy as np
 from datetime import datetime, timedelta
-
 
 # ═════════════════════════════════════════════════════════════════
 # SETUP
@@ -16,23 +15,20 @@ from datetime import datetime, timedelta
 app = Flask(__name__)
 CORS(app)
 
-# ✓ FIX: init_db() should be called but we already imported it
-init_db()  # Create tables on startup
-
+# Create tables on startup
+init_db()
 
 # ═════════════════════════════════════════════════════════════════
 # LOAD ML MODEL
 # ═════════════════════════════════════════════════════════════════
 
-# Load ML model and scaler for predictions
 try:
     model = joblib.load('poop_predictor_model.pkl')
-    scaler = joblib.load('scaler.pkl')  # ✓ ADDED: also load scaler
+    scaler = joblib.load('scaler.pkl')
     MODEL_LOADED = True
-except Exception as e:  # ✓ FIX: catch specific exception
+except Exception as e:
     MODEL_LOADED = False
     print(f"Model not trained yet. Train with 20+ samples first. Error: {e}")
-
 
 # ═════════════════════════════════════════════════════════════════
 # USER ENDPOINTS
@@ -40,12 +36,7 @@ except Exception as e:  # ✓ FIX: catch specific exception
 
 @app.route('/api/users', methods=['POST'])
 def create_user():
-    """
-    Create a new user
-    
-    Request: {"username": "john_doe"}
-    Response: {"id": 1, "username": "john_doe"}
-    """
+    """Create a new user"""
     data = request.get_json()
     username = data.get('username')
     
@@ -68,12 +59,7 @@ def create_user():
 
 @app.route('/api/users/<int:user_id>', methods=['GET'])
 def get_user(user_id):
-    """
-    Get user by ID
-    
-    Request: GET /api/users/1
-    Response: {"id": 1, "username": "john_doe", "created_at": "..."}
-    """
+    """Get user by ID"""
     conn = get_db()
     cursor = conn.cursor()
     
@@ -85,7 +71,6 @@ def get_user(user_id):
         return jsonify(dict(user)), 200
     return jsonify({'error': 'User not found'}), 404
 
-
 # ═════════════════════════════════════════════════════════════════
 # FOOD LOGGING ENDPOINTS
 # ═════════════════════════════════════════════════════════════════
@@ -96,28 +81,14 @@ def log_food():
     Log food with simplified input
     User only enters: food_name, quantity, quantity_unit
     Backend looks up nutrition from USDA automatically
-    
-    Request: {
-        "user_id": 1,
-        "food_name": "pasta",
-        "quantity": 1.5,
-        "quantity_unit": "cup"
-    }
-    
-    Response: {
-        "id": 42,
-        "message": "Food logged!",
-        "nutrition": {"calories": 221, "fiber": 2, ...}
-    }
     """
     data = request.get_json()
     
-    # Validate required fields
     required_fields = ['user_id', 'food_name', 'quantity', 'quantity_unit']
     if not all(field in data for field in required_fields):
         return jsonify({'error': 'Missing required fields'}), 400
     
-    # ✓ FIX: Call nutrition API to fetch nutrition data
+    # Fetch nutrition data from USDA API
     nutrition = fetch_nutrition_data(
         data['food_name'],
         data['quantity'],
@@ -127,10 +98,10 @@ def log_food():
     if nutrition is None:
         return jsonify({
             'error': f"Couldn't find nutrition data for {data['food_name']}",
-            'suggestion': "Try a different spelling or be more specific (e.g., 'chicken breast' instead of 'chicken')"
+            'suggestion': "Try a different spelling (e.g., 'chicken breast' instead of 'chicken')"
         }), 404
 
-    # ✓ IMPORTANT: Convert nutrition dict to JSON string for storage
+    # Convert nutrition dict to JSON string for storage
     nutrition_json = json.dumps(nutrition)
     
     conn = get_db()
@@ -145,7 +116,7 @@ def log_food():
         data['food_name'],
         data['quantity'],
         data['quantity_unit'],
-        nutrition_json  # Store as JSON string
+        nutrition_json
     ))
     
     conn.commit()
@@ -162,18 +133,8 @@ def log_food():
 
 @app.route('/api/foods/<int:user_id>', methods=['GET'])
 def get_foods(user_id):
-    """
-    Get all foods for a user
-    
-    Optional query param: ?date=2025-11-06
-    
-    Request: GET /api/foods/1
-    Response: [
-        {"id": 1, "food_name": "pasta", "quantity": 1.5, "quantity_unit": "cup", ...},
-        ...
-    ]
-    """
-    date = request.args.get('date')  # Format: YYYY-MM-DD
+    """Get all foods for a user"""
+    date = request.args.get('date')
     
     conn = get_db()
     cursor = conn.cursor()
@@ -197,47 +158,24 @@ def get_foods(user_id):
     
     return jsonify(foods), 200
 
-
 # ═════════════════════════════════════════════════════════════════
 # POOP LOGGING ENDPOINTS
 # ═════════════════════════════════════════════════════════════════
 
 @app.route('/api/poops', methods=['POST'])
 def log_poop():
-    """
-    Log poop with intuitive fields
-    User enters: bristol_type, bleeding (yes/no), urgency (1-5), notes
-    
-    Request: {
-        "user_id": 1,
-        "bristol_type": 4,
-        "bleeding": false,
-        "urgency": 2,
-        "notes": "felt normal"
-    }
-    
-    Response: {
-        "id": 99,
-        "message": "Poop logged successfully! 💩"
-    }
-    """
+    """Log a poop entry"""
     data = request.get_json()
     
-    # Validate required fields
     required_fields = ['user_id', 'bristol_type']
     if not all(field in data for field in required_fields):
         return jsonify({'error': 'Missing required fields'}), 400
     
     bristol_type = data['bristol_type']
-    
-    # Validate Bristol type is 1-7
     if bristol_type not in range(1, 8):
         return jsonify({'error': 'Bristol type must be 1-7'}), 400
     
-    # Get optional urgency field (default to 3 = medium)
     urgency = data.get('urgency', 3)
-    
-    # Validate urgency is 1-5
     if urgency and urgency not in range(1, 6):
         return jsonify({'error': 'Urgency must be 1-5'}), 400
     
@@ -251,7 +189,7 @@ def log_poop():
     ''', (
         data['user_id'],
         bristol_type,
-        1 if data.get('bleeding') else 0,  # Convert boolean to 1/0
+        1 if data.get('bleeding') else 0,
         urgency,
         data.get('notes', '')
     ))
@@ -268,18 +206,8 @@ def log_poop():
 
 @app.route('/api/poops/<int:user_id>', methods=['GET'])
 def get_poops(user_id):
-    """
-    Get all poop logs for a user
-    
-    Optional query param: ?date=2025-11-06
-    
-    Request: GET /api/poops/1
-    Response: [
-        {"id": 1, "bristol_type": 4, "bleeding": 0, "urgency": 2, ...},
-        ...
-    ]
-    """
-    date = request.args.get('date')  # Format: YYYY-MM-DD
+    """Get all poop logs for a user"""
+    date = request.args.get('date')
     
     conn = get_db()
     cursor = conn.cursor()
@@ -303,32 +231,13 @@ def get_poops(user_id):
     
     return jsonify(poops), 200
 
-
 # ═════════════════════════════════════════════════════════════════
-# MACHINE LEARNING PREDICTION ENDPOINT
+# ML PREDICTION ENDPOINT
 # ═════════════════════════════════════════════════════════════════
 
 @app.route('/api/predict', methods=['POST'])
 def predict_poop():
-    """
-    Predict poop characteristics based on recent food intake (last 24 hours)
-    
-    Request: {"user_id": 1}
-    
-    Response: {
-        "predicted_bristol_type": 4,
-        "description": "Smooth and soft sausage (ideal!)",
-        "food_summary": {
-            "calories": 2150,
-            "fiber": 25,
-            "fat": 60,
-            "protein": 120,
-            "meals": 3
-        }
-    }
-    """
-    
-    # Check if model is trained
+    """Predict poop characteristics based on recent food intake"""
     if not MODEL_LOADED:
         return jsonify({
             'error': 'ML model not trained yet',
@@ -341,11 +250,9 @@ def predict_poop():
     if not user_id:
         return jsonify({'error': 'User ID required'}), 400
     
-    # Get food from last 24 hours
     conn = get_db()
     cursor = conn.cursor()
     
-    # ✓ FIX: Query nutrition_data (JSON string), not individual columns
     cursor.execute('''
         SELECT 
             GROUP_CONCAT(nutrition_data, '||') as all_nutrition,
@@ -364,14 +271,12 @@ def predict_poop():
             'message': 'Log some foods first to get predictions'
         }), 404
     
-    # ✓ FIX: Extract nutrition from JSON strings
     try:
         total_calories = 0
         total_fiber = 0
         total_fat = 0
         total_protein = 0
         
-        # Split by || separator
         nutrition_strings = food_data['all_nutrition'].split('||')
         
         for nutrition_str in nutrition_strings:
@@ -387,7 +292,6 @@ def predict_poop():
             'details': str(e)
         }), 500
     
-    # Prepare features for prediction (same as training)
     features = np.array([[
         total_calories,
         total_protein,
@@ -396,10 +300,7 @@ def predict_poop():
         food_data['meal_count']
     ]])
     
-    # ✓ FIX: Scale features using the saved scaler
     features_scaled = scaler.transform(features)
-    
-    # Make prediction
     prediction = model.predict(features_scaled)[0]
     
     bristol_descriptions = {
@@ -424,32 +325,16 @@ def predict_poop():
         }
     }), 200
 
-
 # ═════════════════════════════════════════════════════════════════
 # ANALYTICS ENDPOINT
 # ═════════════════════════════════════════════════════════════════
 
 @app.route('/api/analytics/<int:user_id>', methods=['GET'])
 def get_analytics(user_id):
-    """
-    Get user analytics and patterns from last 30 days
-    
-    Request: GET /api/analytics/1
-    
-    Response: {
-        "frequency_data": [
-            {"date": "2025-11-06", "count": 2},
-            {"date": "2025-11-05", "count": 1},
-            ...
-        ],
-        "average_bristol_score": 4.2,
-        "total_logs": 28
-    }
-    """
+    """Get user analytics and patterns"""
     conn = get_db()
     cursor = conn.cursor()
     
-    # Get poop frequency by day
     cursor.execute('''
         SELECT 
             DATE(logged_at) as date,
@@ -463,7 +348,6 @@ def get_analytics(user_id):
     
     frequency_data = [dict(row) for row in cursor.fetchall()]
     
-    # Get average Bristol score
     cursor.execute('''
         SELECT AVG(bristol_type) as avg_bristol
         FROM poop_logs
@@ -482,7 +366,6 @@ def get_analytics(user_id):
         'total_logs': len(frequency_data)
     }), 200
 
-
 # ═════════════════════════════════════════════════════════════════
 # ERROR HANDLERS
 # ═════════════════════════════════════════════════════════════════
@@ -498,10 +381,9 @@ def internal_error(error):
     """Handle 500 errors"""
     return jsonify({'error': 'Internal server error'}), 500
 
-
 # ═════════════════════════════════════════════════════════════════
 # START SERVER
 # ═════════════════════════════════════════════════════════════════
 
 if __name__ == '__main__':
-    app.run(debug=True, host='0.0.0.0', port=5000)
+    app.run(debug=True, host='0.0.0.0', port=5001)

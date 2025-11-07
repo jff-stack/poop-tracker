@@ -11,7 +11,7 @@ import axios from 'axios';
 // Example: http://192.168.1.100:5000
 
 // For Expo Go app on same network:
-const API_BASE_URL = 'http://localhost:5000/api';
+const API_BASE_URL = 'http://192.168.2.129:5000/api';
 // Change localhost to your computer IP if testing on physical device:
 // const API_BASE_URL = 'http://192.168.1.XXX:5000/api';
 
