@@ -1,4 +1,3 @@
-# FRONTEND: services / api.ts - Backend API Calls
 
 import axios from 'axios';
 

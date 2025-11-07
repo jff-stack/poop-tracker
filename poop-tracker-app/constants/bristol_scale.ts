@@ -1,8 +1,3 @@
-# FRONTEND: constants / bristol - scale.ts - Bristol Stool Scale Data
-
-// ═════════════════════════════════════════════════════════════════
-// BRISTOL STOOL SCALE CONSTANT
-// ═════════════════════════════════════════════════════════════════
 
 // What is this?
 // Bristol Stool Scale is a medical classification of 7 poop types

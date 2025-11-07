@@ -1,4 +1,3 @@
-# COMPLETE: app / (tabs) / index.tsx - Pink UI Ready to Copy - Paste
 
 import { StyleSheet, View, Text, TextInput, TouchableOpacity, ScrollView, Alert, ActivityIndicator } from 'react-native';
 import { useState, useEffect } from 'react';
