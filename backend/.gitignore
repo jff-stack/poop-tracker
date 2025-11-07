@@ -1,0 +1,9 @@
+.env
+.env.local
+*.pyc
+__pycache__/
+venv/
+poop_tracker.db
+*.pkl
+scaler.pkl
+.DS_Store
